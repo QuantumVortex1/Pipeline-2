@@ -1,0 +1,14 @@
+{
+  "name": "test-snippet",
+  "version": "1.0.0",
+  "description": "Test snippet for security tools",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "ci:noop": "echo \"CI noop script - no action\""
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "lodash": "^4.17.21"
+  }
+}
