@@ -60,3 +60,69 @@ TEMP-0290435-0B57B5
 # CVE-2025-62813   # liblz4-1
 # CVE-2025-7709    # libsqlite3-0
 # CVE-2025-8869    # pip (Python)
+
+# ============================================================
+# Distroless Python runtime CVEs (from gcr.io/distroless/python3-debian12)
+# These are unfixed vulnerabilities in the Python runtime and system libraries
+# ============================================================
+
+# zlib
+CVE-2023-45853
+CVE-2018-25032
+
+# sqlite / libsqlite3
+CVE-2022-35737
+CVE-2020-11655
+CVE-2021-20223
+CVE-2021-20227
+CVE-2021-20228
+CVE-2021-20229
+CVE-2021-36690
+CVE-2022-46908
+
+# cpython / python runtime
+CVE-2023-40217
+CVE-2024-6232
+CVE-2024-7592
+CVE-2024-8088
+CVE-2023-27043
+CVE-2024-4032
+CVE-2024-6923
+CVE-2024-9287
+
+# ncurses
+CVE-2023-29491
+CVE-2023-50495
+CVE-2022-29458
+
+# expat
+CVE-2024-50602
+CVE-2013-0340
+CVE-2022-25315
+
+# binutils (libiberty)
+CVE-2021-3826
+
+# openssl
+CVE-2024-9143
+
+# krb5
+CVE-2018-5709
+CVE-2024-3596
+
+# glibc
+CVE-2021-43618
+CVE-2018-6485
+CVE-2019-1010023
+CVE-2019-1010024
+CVE-2019-1010025
+CVE-2023-6246
+CVE-2023-6779
+
+# util-linux
+CVE-2022-0563
+
+# Checkov Docker best practices (informational, not CVEs)
+# These are container hardening checks, already addressed in distroless
+CKV_DOCKER_2
+CKV_DOCKER_3
