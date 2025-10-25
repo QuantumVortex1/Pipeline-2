@@ -27,7 +27,7 @@ jobs:
       - name: Install Bandit
         run: python -m pip install --upgrade pip && pip install bandit bandit-sarif-formatter
       - name: Run Bandit (SARIF)
-        run: bandit -r src/test-snippet -f sarif -o bandit-report.sarif || true
+        run: bandit -r src/minimal-app -f sarif -o bandit-report.sarif || true
       - name: Upload Bandit SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -54,7 +54,7 @@ jobs:
       - name: Install checkov
         run: python -m pip install --upgrade pip && pip install checkov
       - name: Run Checkov (SARIF)
-        run: checkov -d src/test-snippet -o sarif --output-file-path checkov-report.sarif || true
+        run: checkov -d src/minimal-app -o sarif --output-file-path checkov-report.sarif || true
       - name: Upload Checkov SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -78,12 +78,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build python sample image
-        run: docker build -t test-snippet:latest ./src/test-snippet
+        run: docker build -t minimal-app:latest ./src/minimal-app
       - name: Create trivy output dir
         run: mkdir -p trivy-output
       - name: Run Trivy scan (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-report.sarif test-snippet:latest || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-report.sarif minimal-app:latest || true
       - name: Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -112,20 +112,20 @@ jobs:
         run: |
           echo "Workspace: $GITHUB_WORKSPACE"
           ls -la "$GITHUB_WORKSPACE" || true
-          echo 'test-snippet content:'
-          ls -la "$GITHUB_WORKSPACE/src/test-snippet" || true
+          echo 'minimal-app content:'
+          ls -la "$GITHUB_WORKSPACE/src/minimal-app" || true
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '16'
-      - name: Install node dependencies for src/test-snippet (if present)
+      - name: Install node dependencies for src/minimal-app (if present)
         run: |
-          if [ -f "${{ github.workspace }}/src/test-snippet/package.json" ]; then
+          if [ -f "${{ github.workspace }}/src/minimal-app/package.json" ]; then
             echo 'package.json found, running npm ci'
-            cd "${{ github.workspace }}/src/test-snippet" || exit 1
+            cd "${{ github.workspace }}/src/minimal-app" || exit 1
             npm ci || npm install
           else
-            echo 'No package.json found in src/test-snippet, skipping npm install'
+            echo 'No package.json found in src/minimal-app, skipping npm install'
           fi
       - name: Create output dir
         run: mkdir -p dc-output
@@ -175,7 +175,7 @@ jobs:
             docker run --rm --user 0 \
               -e NVD_API_KEY="$NVD_API_KEY" \
               -v "${{ github.workspace }}/dc-cache:/usr/share/dependency-check/data" \
-              -v "${{ github.workspace }}/src/test-snippet:/src" \
+              -v "${{ github.workspace }}/src/minimal-app:/src" \
               owasp/dependency-check:latest --nvdApiKey "$NVD_API_KEY" --scan /src --format JSON --out /tmp/report || true
 
             echo 'After populate run, host dc-cache listing (owner and size):'
@@ -205,7 +205,7 @@ jobs:
           # so it can obtain the H2 exclusive lock and update DB files.
           docker run --rm --user 0 \
             -e NVD_API_KEY="$NVD_API_KEY" \
-            -v "${{ github.workspace }}/src/test-snippet:/src" \
+              -v "${{ github.workspace }}/src/minimal-app:/src" \
             -v "${{ github.workspace }}/dc-output:/report" \
             -v "${{ github.workspace }}/dc-cache:/usr/share/dependency-check/data" \
             owasp/dependency-check:latest --noupdate --nvdApiKey "$NVD_API_KEY" --scan /src --format SARIF --out /report || true

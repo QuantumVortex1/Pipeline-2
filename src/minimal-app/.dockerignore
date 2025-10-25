@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+env/
+venv/
+\.venv/
+
+# Git
+.git
+.gitignore
+
+# Logs and CI
+*.log
+ci-cache-trigger.txt
+
+# Docker
+Dockerfile
