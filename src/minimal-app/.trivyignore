@@ -1,0 +1,62 @@
+# syntax=plaintext
+# Trivy ignore file for minimal-app
+# Suppress LOW severity CVEs that are unfixed in Debian bookworm base packages
+# and represent minimal actual risk in a containerized, non-root, minimal service.
+
+# apt / libapt-pkg7.0
+CVE-2011-3374
+
+# bash
+TEMP-0841856-B18BAF
+
+# bsdutils / libblkid1 / libmount1 / libsmartcols1 / libuuid1 / login / mount / util-linux
+CVE-2022-0563
+
+# coreutils
+CVE-2017-18018
+CVE-2025-5278
+
+# libc-bin / libc6 (glibc)
+CVE-2010-4756
+CVE-2018-20796
+CVE-2019-1010022
+CVE-2019-1010023
+CVE-2019-1010024
+CVE-2019-1010025
+CVE-2019-9192
+
+# liblastlog2-2
+# (already covered by CVE-2022-0563)
+
+# libncursesw6 / libtinfo6 / ncurses-base / ncurses-bin
+CVE-2025-6141
+
+# libsqlite3-0 LOW
+CVE-2021-45346
+
+# libsystemd0 / libudev1
+CVE-2013-4392
+CVE-2023-31437
+CVE-2023-31438
+CVE-2023-31439
+
+# login.defs / passwd
+CVE-2007-5686
+CVE-2024-56433
+TEMP-0628843-DBAD28
+
+# perl-base
+CVE-2011-4116
+
+# sysvinit-utils
+TEMP-0517018-A83CE6
+
+# tar
+CVE-2005-2541
+TEMP-0290435-0B57B5
+
+# MEDIUM severity CVEs without fixed version (will attempt to fix via upgrade or distroless)
+# Uncomment below if you accept the risk after review:
+# CVE-2025-62813   # liblz4-1
+# CVE-2025-7709    # libsqlite3-0
+# CVE-2025-8869    # pip (Python)

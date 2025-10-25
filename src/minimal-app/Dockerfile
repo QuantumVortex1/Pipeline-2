@@ -1,32 +1,39 @@
-FROM python:3.11-slim
-
-# Create a non-root user and group (idempotent)
-RUN set -eux; \
-    groupadd -r app 2>/dev/null || true; \
-    useradd -r -g app -d /home/app -s /usr/sbin/nologin -c "App user" app 2>/dev/null || true; \
-    mkdir -p /home/app
+# ============================================================
+# Build stage: install dependencies in a full Python image
+# ============================================================
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Copy only requirements first to leverage Docker cache
+# Upgrade pip to latest version to address CVE-2025-8869
+RUN pip install --no-cache-dir --upgrade pip
+
+# Copy requirements and install to a target directory
 COPY requirements.txt ./
+RUN pip install --no-cache-dir --target /app/deps -r requirements.txt
 
-# Install pinned dependencies without caching wheels on the image
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application
+# Copy application code
 COPY app.py ./
 
-# Make the application directory owned by non-root user
-RUN chown -R app:app /app
+# ============================================================
+# Final stage: minimal distroless runtime image
+# ============================================================
+FROM gcr.io/distroless/python3-debian12:nonroot
 
-ENV HOME=/home/app
-USER app
+# Copy installed dependencies and application from builder
+COPY --from=builder /app/deps /app/deps
+COPY --from=builder /app/app.py /app/app.py
 
-# Healthcheck uses Python to avoid adding curl to the image
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD ["python","-c","import urllib.request,sys;\n\ntry:\n    r=urllib.request.urlopen('http://127.0.0.1:8080/health')\n    sys.exit(0 if r.getcode()==200 else 1)\nexcept Exception:\n    sys.exit(1)"]
+# Set PYTHONPATH so Python can find installed packages
+ENV PYTHONPATH=/app/deps
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_RUN_PORT=8080
+
+WORKDIR /app
 
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+# Distroless runs as nonroot by default (UID 65532)
+# No HEALTHCHECK in distroless (no shell), monitor externally or use k8s probes
+
+CMD ["app.py"]
