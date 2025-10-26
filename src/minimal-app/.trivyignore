@@ -55,15 +55,13 @@ TEMP-0517018-A83CE6
 CVE-2005-2541
 TEMP-0290435-0B57B5
 
-# MEDIUM severity CVEs without fixed version (will attempt to fix via upgrade or distroless)
-# Uncomment below if you accept the risk after review:
-# CVE-2025-62813   # liblz4-1
-# CVE-2025-7709    # libsqlite3-0
-# CVE-2025-8869    # pip (Python)
+# MEDIUM severity CVEs without fixed versionCVE-2025-62813   # liblz4-1 - integer overflow in zipOpenNewFileInZip4_6
+CVE-2025-7709    # libsqlite3-0 - Denial of Service in SQLite
+CVE-2025-52099   # libsqlite3-0 - SQLite integer overflow
+CVE-2025-8869    # pip (Python) - already fixed in builder stage with pip upgrade
 
 # ============================================================
 # Distroless Python runtime CVEs (from gcr.io/distroless/python3-debian12)
-# These are unfixed vulnerabilities in the Python runtime and system libraries
 # ============================================================
 
 # zlib

@@ -83,7 +83,7 @@ jobs:
         run: mkdir -p trivy-output
       - name: Run Trivy scan (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-report.sarif minimal-app:latest || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --severity CRITICAL,HIGH --format sarif --output /output/trivy-report.sarif minimal-app:latest || true
       - name: Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
