@@ -1,28 +1,26 @@
-# ============================================================
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim
+
+RUN set -eux; \
+    groupadd -r app 2>/dev/null || true; \
+    useradd -r -g app -d /home/app -s /usr/sbin/nologin -c "App user" app 2>/dev/null || true; \
+    mkdir -p /home/app
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --upgrade pip
-
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --target /app/deps -r requirements.txt
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py ./
 
-# ============================================================
-FROM gcr.io/distroless/python3-debian12:nonroot
+RUN chown -R app:app /app
 
-COPY --from=builder /app/deps /app/deps
-COPY --from=builder /app/app.py /app/app.py
+ENV HOME=/home/app
+USER app
 
-ENV PYTHONPATH=/app/deps
-ENV FLASK_RUN_HOST=0.0.0.0
-ENV FLASK_RUN_PORT=8080
-
-WORKDIR /app
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD ["python","-c","import urllib.request,sys;\n\ntry:\n    r=urllib.request.urlopen('http://127.0.0.1:8080/health')\n    sys.exit(0 if r.getcode()==200 else 1)\nexcept Exception:\n    sys.exit(1)"]
 
 EXPOSE 8080
 
-
-CMD ["app.py"]
+CMD ["python", "app.py"]
