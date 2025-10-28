@@ -9,13 +9,11 @@ app = Flask(__name__)
 items = {}
 request_counter = 0
 
-# SECURE: Use environment variables for credentials
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
 API_KEY = os.getenv("API_KEY", "")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
-# SECURE: Strong cryptographic key from environment
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", secrets.token_hex(32))
 
 
@@ -53,7 +51,6 @@ def info():
         requests_served=request_counter,
         items_count=len(items),
         timestamp=datetime.now().astimezone().isoformat()
-        # SECURE: Don't expose sensitive information
     )
 
 
@@ -63,14 +60,11 @@ def admin_login():
     username = data.get("username", "")
     password = data.get("password", "")
     
-    # SECURE: Use environment variable and strong hashing
     if username == "admin" and password == ADMIN_PASSWORD:
-        # SECURE: Use SHA256 instead of MD5
         token = hashlib.sha256(f"{username}:{password}:{secrets.token_hex(16)}".encode(), usedforsecurity=True).hexdigest()
         return jsonify(
             message="Login successful",
             token=token
-            # SECURE: Don't expose API key
         ), 200
     
     return jsonify(error="Invalid credentials"), 401
@@ -79,19 +73,12 @@ def admin_login():
 @app.get("/search")
 def search_items():
     query = request.args.get("q", "")
-    
-    # SECURE: Use parameterized approach, no SQL injection
-    # Simulate safe search in in-memory store
     results = [item for item in items.values() if query.lower() in item["name"].lower()]
     
     return jsonify(
         query=query,
         results=results
-        # SECURE: Don't expose internal queries
     ), 200
-
-
-# SECURE: Removed /execute endpoint entirely (command injection risk)
 
 
 @app.get("/items")
@@ -112,7 +99,6 @@ def create_item():
     
     item_id = f"item-{len(items) + 1}"
     
-    # SECURE: Use SHA256 instead of MD5
     item_hash = hashlib.sha256(name.encode(), usedforsecurity=False).hexdigest()
     
     item = {
@@ -158,6 +144,5 @@ if __name__ == "__main__":
     host = os.getenv("FLASK_RUN_HOST", "127.0.0.1")
     port = int(os.getenv("FLASK_RUN_PORT", "8080"))
     
-    # SECURE: Debug mode disabled in production
     debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
     app.run(host=host, port=port, debug=debug_mode)
