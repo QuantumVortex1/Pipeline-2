@@ -1,8 +1,8 @@
-FROM node:20-alpine
+FROM node:22-alpine
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 COPY . .
 RUN chown -R nodejs:nodejs /app
 EXPOSE 3000
