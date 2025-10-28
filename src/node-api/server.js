@@ -88,6 +88,17 @@ app.get('/eval', (req, res) => {
   }
 });
 
+app.get('/api/fetch', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'Missing url parameter' });
+  try {
+    const response = await axios.get(url);
+    res.json({ data: response.data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.use((err, req, res, next) => { console.error(err.stack); res.status(500).json({ error: 'Internal server error' }); });
 app.use((req, res) => { res.status(404).json({ error: 'Endpoint not found' }); });
 app.listen(PORT, () => { 
