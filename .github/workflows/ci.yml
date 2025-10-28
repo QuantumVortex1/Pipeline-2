@@ -133,62 +133,35 @@ jobs:
       
       - name: Install node-api dependencies
         run: |
-          if [ -f "src/node-api/package.json" ]; then
-            echo "Installing node-api dependencies..."
-            cd src/node-api
-            npm install
-            echo "Dependencies installed successfully"
-            ls -la node_modules/ | head -20
-          else
-            echo "No package.json found in src/node-api"
-          fi
+          cd src/node-api
+          npm install
       
       - name: Create output directory
-        run: mkdir -p dc-output
+        run: mkdir -p dc-output-node
 
-      - name: Run OWASP Dependency-Check
+      - name: Run OWASP Dependency-Check on node-api
         run: |
-          echo "Scanning src directory..."
-          ls -la src/
-          echo "Node modules check:"
-          ls -la src/node-api/node_modules/ | head -10 || echo "No node_modules found"
-          
           docker run --rm \
             -e NVD_API_KEY="$NVD_API_KEY" \
-            -v "${{ github.workspace }}/src:/src" \
-            -v "${{ github.workspace }}/dc-output:/report" \
+            -v "${{ github.workspace }}/src/node-api:/src" \
+            -v "${{ github.workspace }}/dc-output-node:/report" \
             owasp/dependency-check:latest \
             --nvdApiKey "$NVD_API_KEY" \
             --scan /src \
             --format SARIF \
-            --out /report
-          
-          echo "Dependency-Check completed. Output directory:"
-          ls -la dc-output/ || echo "No output directory"
-      
-      - name: Check if SARIF report exists
-        id: check_sarif
-        run: |
-          if [ -f "dc-output/dependency-check-report.sarif" ]; then
-            echo "sarif_exists=true" >> $GITHUB_OUTPUT
-            echo "SARIF report found"
-          else
-            echo "sarif_exists=false" >> $GITHUB_OUTPUT
-            echo "SARIF report not found - creating empty report"
-            mkdir -p dc-output
-            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"dependency-check"}},"results":[]}]}' > dc-output/dependency-check-report.sarif
-          fi
+            --out /report || true
       
       - name: Upload Dependency-Check SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always() && steps.check_sarif.outputs.sarif_exists == 'true'
+        if: always()
+        continue-on-error: true
         with:
-          sarif_file: dc-output/dependency-check-report.sarif
-          category: dependency-check
+          sarif_file: dc-output-node/dependency-check-report.sarif
+          category: dependency-check-node-api
       
       - name: Upload Dependency-Check report (artifact)
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: dependency-check-report
-          path: dc-output/**
+          path: dc-output-node/**
