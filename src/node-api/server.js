@@ -7,13 +7,13 @@ const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-const JWT_SECRET = "random_jwt_secret_key";
-const API_KEY = "random_api_key";
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
+const API_KEY = process.env.API_KEY;
 
 const crypto = require('crypto');
 const users = [
@@ -69,42 +69,21 @@ app.get('/date', (req, res) => {
   try { const parsedDate = moment(input); if (!parsedDate.isValid()) return res.status(400).json({ error: 'Invalid date' }); res.json({ input: input, parsed: parsedDate.toISOString(), formatted: parsedDate.format('YYYY-MM-DD HH:mm:ss') }); } catch (error) { res.status(500).json({ error: 'Error parsing date' }); }
 });
 
-app.get('/search', (req, res) => {
-  const { query } = req.query;
-  if (!query) return res.status(400).json({ error: 'Missing query parameter' });
-  const sqlQuery = `SELECT * FROM users WHERE username = '${query}'`;
-  res.json({ message: 'Search executed', query: sqlQuery, warning: 'This endpoint is vulnerable to SQL injection' });
-});
-
-app.get('/ping', (req, res) => {
-  const { host } = req.query;
-  if (!host) return res.status(400).json({ error: 'Missing host parameter' });
-  const { exec } = require('child_process');
-  exec(`ping -n 2 ${host}`, (error, stdout, stderr) => {
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ output: stdout });
-  });
-});
-
-app.post('/calculate', (req, res) => {
-  const { expression } = req.body;
-  if (!expression) return res.status(400).json({ error: 'Missing expression' });
-  try {
-    const result = eval(expression);
-    res.json({ expression, result });
-  } catch (error) {
-    res.status(400).json({ error: 'Invalid expression' });
+app.get('/admin/users', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
   }
-});
-
-app.get('/admin/users', (req, res) => {
   const safeUsers = users.map(({ password, ...rest }) => rest);
-  res.json({ users: safeUsers, warning: 'This endpoint should require admin authentication' });
+  res.json({ users: safeUsers });
 });
 
 app.use((err, req, res, next) => { console.error(err.stack); res.status(500).json({ error: 'Internal server error' }); });
 app.use((req, res) => { res.status(404).json({ error: 'Endpoint not found' }); });
-app.listen(PORT, () => { console.log(`✅ Secure API server running on port ${PORT}`); if (!JWT_SECRET) console.warn('⚠️  WARNING: Using auto-generated JWT_SECRET. Set JWT_SECRET in .env for production!'); });
+app.listen(PORT, () => { 
+  console.log(`✅ Secure API server running on port ${PORT}`); 
+  if (!process.env.JWT_SECRET) console.warn('⚠️  WARNING: Using auto-generated JWT_SECRET. Set JWT_SECRET in .env for production!'); 
+  if (!process.env.API_KEY) console.warn('⚠️  WARNING: API_KEY not set in .env');
+});
 process.on('uncaughtException', (err) => { console.error('Uncaught Exception:', err); process.exit(1); });
 process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err); process.exit(1); });
 module.exports = app;
