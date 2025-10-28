@@ -1,0 +1,42 @@
+# Terraform Variables Configuration
+# Kopiere diese Datei zu terraform.tfvars und passe die Werte an
+
+# AWS Region
+aws_region = "eu-central-1"
+
+# Projektname
+project_name = "devsecops-pipeline"
+
+# Environment
+environment = "dev"
+
+# AMI ID (Amazon Linux 2023 für eu-central-1)
+# Finde aktuelle AMI: aws ec2 describe-images --owners amazon --filters "Name=name,Values=al2023-ami-*" --query 'Images[0].ImageId'
+ami_id = "ami-0c55b159cbfafe1f0"
+
+# Instance Type
+instance_type = "t2.micro"
+
+# VPC ID (ersetze mit deiner VPC ID)
+vpc_id = "vpc-0123456789abcdef0"
+
+# Subnet ID (ersetze mit deiner Subnet ID)
+subnet_id = "subnet-0123456789abcdef0"
+
+# Root Volume Größe in GB
+root_volume_size = 20
+
+# Erlaubte SSH CIDR Blocks (WICHTIG: In Production einschränken!)
+allowed_ssh_cidr_blocks = [
+  "0.0.0.0/0"  # WARNUNG: Erlaube nur spezifische IPs in Production!
+]
+
+# Elastic IP zuweisen?
+assign_eip = false
+
+# CloudWatch Alarm Actions (optional: SNS Topic ARNs)
+alarm_actions = []
+# alarm_actions = ["arn:aws:sns:eu-central-1:123456789012:my-alerts-topic"]
+
+# User Data Script (optional: eigenes Script)
+# user_data_script = file("${path.module}/scripts/user-data.sh")
