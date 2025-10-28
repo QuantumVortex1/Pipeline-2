@@ -1,8 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.12-alpine
 
 RUN set -eux; \
-    groupadd -r app 2>/dev/null || true; \
-    useradd -r -g app -d /home/app -s /usr/sbin/nologin -c "App user" app 2>/dev/null || true; \
+    addgroup -S app 2>/dev/null || true; \
+    adduser -S -G app -h /home/app -s /sbin/nologin app 2>/dev/null || true; \
     mkdir -p /home/app
 
 WORKDIR /app

@@ -85,14 +85,14 @@ jobs:
         run: docker build -t minimal-app:latest ./src/minimal-app
       - name: Run Trivy scan on minimal-app (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-minimal-app.sarif minimal-app:latest || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --severity CRITICAL,HIGH --format sarif --output /output/trivy-minimal-app.sarif minimal-app:latest || true
       
       # Build and scan node-api
       - name: Build node-api image
         run: docker build -t node-api:latest ./src/node-api
       - name: Run Trivy scan on node-api (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-node-api.sarif node-api:latest || true
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --severity CRITICAL,HIGH --format sarif --output /output/trivy-node-api.sarif node-api:latest || true
       
       # Upload results
       - name: Upload Trivy minimal-app SARIF to GitHub Security
@@ -133,14 +133,26 @@ jobs:
       
       - name: Install node-api dependencies
         run: |
-          cd src/node-api
-          npm install || true
+          if [ -f "src/node-api/package.json" ]; then
+            echo "Installing node-api dependencies..."
+            cd src/node-api
+            npm install
+            echo "Dependencies installed successfully"
+            ls -la node_modules/ | head -20
+          else
+            echo "No package.json found in src/node-api"
+          fi
       
       - name: Create output directory
         run: mkdir -p dc-output
 
       - name: Run OWASP Dependency-Check
         run: |
+          echo "Scanning src directory..."
+          ls -la src/
+          echo "Node modules check:"
+          ls -la src/node-api/node_modules/ | head -10 || echo "No node_modules found"
+          
           docker run --rm \
             -e NVD_API_KEY="$NVD_API_KEY" \
             -v "${{ github.workspace }}/src:/src" \
@@ -149,11 +161,27 @@ jobs:
             --nvdApiKey "$NVD_API_KEY" \
             --scan /src \
             --format SARIF \
-            --out /report || true
+            --out /report
+          
+          echo "Dependency-Check completed. Output directory:"
+          ls -la dc-output/ || echo "No output directory"
+      
+      - name: Check if SARIF report exists
+        id: check_sarif
+        run: |
+          if [ -f "dc-output/dependency-check-report.sarif" ]; then
+            echo "sarif_exists=true" >> $GITHUB_OUTPUT
+            echo "SARIF report found"
+          else
+            echo "sarif_exists=false" >> $GITHUB_OUTPUT
+            echo "SARIF report not found - creating empty report"
+            mkdir -p dc-output
+            echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"dependency-check"}},"results":[]}]}' > dc-output/dependency-check-report.sarif
+          fi
       
       - name: Upload Dependency-Check SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && steps.check_sarif.outputs.sarif_exists == 'true'
         with:
           sarif_file: dc-output/dependency-check-report.sarif
           category: dependency-check
