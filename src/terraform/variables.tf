@@ -57,20 +57,20 @@ variable "root_volume_size" {
   default     = 20
 }
 
-# Allowed SSH CIDR Blocks
-variable "allowed_ssh_cidr_blocks" {
+# Trusted IP Ranges for SSH
+variable "trusted_ip_ranges" {
   description = "CIDR-Blöcke, die SSH-Zugriff erhalten (Best Practice: nur spezifische IPs)"
   type        = list(string)
-  # VULNERABILITY 10: Default erlaubt SSH von überall
-  default     = ["0.0.0.0/0"]  # CRITICAL: In Production einschränken!
+  # SECURE: No default - must be explicitly set
+  # Example: ["203.0.113.0/24", "198.51.100.0/24"]
 }
 
-# VULNERABILITY 11: Hardcoded Secrets in Variables
+# SECURE: Sensitive variables without defaults
 variable "db_password" {
-  description = "Database password"
+  description = "Database password (must be provided via terraform.tfvars or environment variable)"
   type        = string
-  default     = "SuperSecret123!"  # Sollte NIEMALS hardcoded sein!
-  # sensitive = true  # Sollte mindestens sensitive sein!
+  sensitive   = true
+  # No default - must be explicitly provided
 }
 
 # Elastic IP zuweisen?

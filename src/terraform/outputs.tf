@@ -4,17 +4,17 @@ output "instance_id" {
   value       = aws_instance.example.id
 }
 
-# VULNERABILITY 8: Sensitive Daten ohne "sensitive = true"
+# SECURE: Sensitive data properly marked
 output "instance_public_ip" {
   description = "Öffentliche IP der EC2 Instance"
   value       = aws_instance.example.public_ip
-  # sensitive = true  # Sollte gesetzt sein!
+  sensitive   = true
 }
 
 output "instance_private_ip" {
   description = "Private IP der EC2 Instance"
   value       = aws_instance.example.private_ip
-  # sensitive = true  # Sollte gesetzt sein!
+  sensitive   = true
 }
 
 output "instance_arn" {
@@ -61,12 +61,11 @@ output "cloudwatch_alarm_name" {
   value       = aws_cloudwatch_metric_alarm.cpu_alarm.alarm_name
 }
 
-# SSH Connection String
-# VULNERABILITY 9: Sensitive SSH Info wird geloggt
+# SECURE: SSH Connection marked as sensitive
 output "ssh_connection" {
   description = "SSH Connection String (verwende deinen Private Key)"
   value       = "ssh -i /path/to/key.pem ec2-user@${aws_instance.example.public_ip}"
-  # sensitive = true  # Sollte gesetzt sein!
+  sensitive   = true
 }
 
 # Summary
@@ -74,11 +73,10 @@ output "deployment_summary" {
   description = "Zusammenfassung der Deployment-Informationen"
   value = {
     instance_id      = aws_instance.example.id
-    public_ip        = aws_instance.example.public_ip
     instance_type    = var.instance_type
-    monitoring       = "disabled"  # Updated to reflect actual config
-    ebs_encrypted    = "false"     # Updated to reflect actual config
-    imdsv2_enforced  = "false"     # Updated to reflect actual config
+    monitoring       = "enabled"   # Updated to reflect secure config
+    ebs_encrypted    = "true"      # Updated to reflect secure config
+    imdsv2_enforced  = "true"      # Updated to reflect secure config
     ebs_optimized    = "true"
     environment      = var.environment
   }

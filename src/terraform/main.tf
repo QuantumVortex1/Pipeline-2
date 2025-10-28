@@ -30,12 +30,12 @@ resource "aws_iam_role" "ec2_role" {
     ]
   })
 
-  # VULNERABILITY 1: Fehlende Tags für IAM Role
-  # tags = {
-  #   Name        = "${var.project_name}-ec2-role"
-  #   Environment = var.environment
-  #   ManagedBy   = "Terraform"
-  # }
+  # SECURE: Proper tags for IAM Role
+  tags = {
+    Name        = "${var.project_name}-ec2-role"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }
 
 # IAM Instance Profile
@@ -59,12 +59,22 @@ resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
     Statement = [
       {
         Effect = "Allow"
-        # VULNERABILITY 2: Zu weitreichende IAM-Permissions (Wildcard)
+        # SECURE: Least-privilege IAM permissions
         Action = [
-          "logs:*",
-          "s3:*"
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ]
-        Resource = "*"
+        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/ec2/${var.project_name}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "arn:aws:s3:::${var.project_name}-logs/*"
       }
     ]
   })
@@ -76,16 +86,16 @@ resource "aws_security_group" "ec2_sg" {
   description = "Security group for ${var.project_name} EC2 instance"
   vpc_id      = var.vpc_id
 
-  # VULNERABILITY 3: SSH offen für die ganze Welt
+  # SECURE: SSH restricted to specific IP ranges
   ingress {
-    description = "SSH from anywhere"
+    description = "SSH from trusted IPs only"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.trusted_ip_ranges  # Should be configured in variables
   }
 
-  # HTTP Access (optional, für Webserver)
+  # HTTP Access (for web servers)
   ingress {
     description = "HTTP from anywhere"
     from_port   = 80
@@ -94,20 +104,11 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTPS Access (optional, für Webserver)
+  # HTTPS Access (for web servers)
   ingress {
     description = "HTTPS from anywhere"
     from_port   = 443
     to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # VULNERABILITY 4: Unnötig geöffneter RDP Port
-  ingress {
-    description = "RDP access"
-    from_port   = 3389
-    to_port     = 3389
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -136,25 +137,25 @@ resource "aws_instance" "example" {
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   subnet_id            = var.subnet_id
 
-  # VULNERABILITY 5: IMDSv1 erlaubt (SSRF-Risiko)
+  # SECURE: IMDSv2 required (prevents SSRF attacks)
   metadata_options {
     http_endpoint               = "enabled"
-    http_tokens                 = "optional"  # Sollte "required" sein für IMDSv2
+    http_tokens                 = "required"  # Enforces IMDSv2
     http_put_response_hop_limit = 1
     instance_metadata_tags      = "enabled"
   }
 
-  # VULNERABILITY 6: Detailed Monitoring deaktiviert (reduzierte Visibility)
-  monitoring = false
+  # SECURE: Detailed Monitoring enabled for better observability
+  monitoring = true
 
   # EBS-Optimized für bessere Performance
   ebs_optimized = true
 
-  # VULNERABILITY 7: Unverschlüsseltes Root Volume
+  # SECURE: Encrypted Root Volume
   root_block_device {
     volume_type           = "gp3"
     volume_size           = var.root_volume_size
-    encrypted             = false  # Sollte true sein!
+    encrypted             = true  # Encryption enabled!
     delete_on_termination = true
     
     tags = {
