@@ -30,11 +30,12 @@ resource "aws_iam_role" "ec2_role" {
     ]
   })
 
-  tags = {
-    Name        = "${var.project_name}-ec2-role"
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
+  # VULNERABILITY 1: Fehlende Tags für IAM Role
+  # tags = {
+  #   Name        = "${var.project_name}-ec2-role"
+  #   Environment = var.environment
+  #   ManagedBy   = "Terraform"
+  # }
 }
 
 # IAM Instance Profile
@@ -49,7 +50,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   }
 }
 
-# Optional: IAM Policy für CloudWatch Logs
+# IAM Policy für CloudWatch Logs
 resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
   name   = "${var.project_name}-cloudwatch-logs"
   role   = aws_iam_role.ec2_role.id
@@ -58,13 +59,12 @@ resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
     Statement = [
       {
         Effect = "Allow"
+        # VULNERABILITY 2: Zu weitreichende IAM-Permissions (Wildcard)
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogStreams"
+          "logs:*",
+          "s3:*"
         ]
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "*"
       }
     ]
   })
@@ -76,13 +76,13 @@ resource "aws_security_group" "ec2_sg" {
   description = "Security group for ${var.project_name} EC2 instance"
   vpc_id      = var.vpc_id
 
-  # SSH Access (nur für Demo - in Production mit spezifischen IPs einschränken)
+  # VULNERABILITY 3: SSH offen für die ganze Welt
   ingress {
-    description = "SSH from allowed IPs"
+    description = "SSH from anywhere"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = var.allowed_ssh_cidr_blocks
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # HTTP Access (optional, für Webserver)
@@ -99,6 +99,15 @@ resource "aws_security_group" "ec2_sg" {
     description = "HTTPS from anywhere"
     from_port   = 443
     to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # VULNERABILITY 4: Unnötig geöffneter RDP Port
+  ingress {
+    description = "RDP access"
+    from_port   = 3389
+    to_port     = 3389
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -127,25 +136,25 @@ resource "aws_instance" "example" {
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   subnet_id            = var.subnet_id
 
-  # IMDSv2 Enforcement (SSRF-Protection)
+  # VULNERABILITY 5: IMDSv1 erlaubt (SSRF-Risiko)
   metadata_options {
     http_endpoint               = "enabled"
-    http_tokens                 = "required"  # IMDSv2 - verhindert SSRF-Angriffe
+    http_tokens                 = "optional"  # Sollte "required" sein für IMDSv2
     http_put_response_hop_limit = 1
     instance_metadata_tags      = "enabled"
   }
 
-  # Detailed Monitoring aktivieren
-  monitoring = true
+  # VULNERABILITY 6: Detailed Monitoring deaktiviert (reduzierte Visibility)
+  monitoring = false
 
   # EBS-Optimized für bessere Performance
   ebs_optimized = true
 
-  # Encrypted Root Volume
+  # VULNERABILITY 7: Unverschlüsseltes Root Volume
   root_block_device {
     volume_type           = "gp3"
     volume_size           = var.root_volume_size
-    encrypted             = true
+    encrypted             = false  # Sollte true sein!
     delete_on_termination = true
     
     tags = {

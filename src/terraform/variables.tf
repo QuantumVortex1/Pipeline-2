@@ -61,7 +61,16 @@ variable "root_volume_size" {
 variable "allowed_ssh_cidr_blocks" {
   description = "CIDR-Blöcke, die SSH-Zugriff erhalten (Best Practice: nur spezifische IPs)"
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # WARNUNG: In Production einschränken!
+  # VULNERABILITY 10: Default erlaubt SSH von überall
+  default     = ["0.0.0.0/0"]  # CRITICAL: In Production einschränken!
+}
+
+# VULNERABILITY 11: Hardcoded Secrets in Variables
+variable "db_password" {
+  description = "Database password"
+  type        = string
+  default     = "SuperSecret123!"  # Sollte NIEMALS hardcoded sein!
+  # sensitive = true  # Sollte mindestens sensitive sein!
 }
 
 # Elastic IP zuweisen?

@@ -1,0 +1,25 @@
+{
+  "name": "vulnerable-node-api",
+  "version": "1.0.0",
+  "description": "Demo Node.js API with intentional security vulnerabilities for DevSecOps testing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["demo", "security", "devsecops"],
+  "author": "DevSecOps Pipeline Demo",
+  "license": "MIT",
+  "dependencies": {
+    "express": "4.16.0",
+    "lodash": "4.17.4",
+    "jsonwebtoken": "8.5.0",
+    "moment": "2.19.3",
+    "axios": "0.18.0",
+    "body-parser": "1.18.3",
+    "dotenv": "6.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "1.18.4"
+  }
+}

@@ -2,18 +2,21 @@ from flask import Flask, jsonify, request
 import os
 from datetime import datetime
 import hashlib
-import secrets
+import subprocess
 
 app = Flask(__name__)
 
 items = {}
 request_counter = 0
 
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
-API_KEY = os.getenv("API_KEY")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+# SECURITY ISSUES: Hardcoded credentials
+DATABASE_PASSWORD = "SuperSecret123!"
+API_KEY = "sk-1234567890abcdef1234567890abcdef"
+AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+ADMIN_PASSWORD = "admin123"
+
+# SECURITY ISSUE: Weak cryptographic key
+ENCRYPTION_KEY = "12345"  # Bandit: B105, weak key
 
 
 @app.get("/")
@@ -29,8 +32,10 @@ def index():
             {"path": "/items", "method": "POST", "description": "Create new item"},
             {"path": "/items/<id>", "method": "GET", "description": "Get item by ID"},
             {"path": "/items/<id>", "method": "DELETE", "description": "Delete item by ID"},
+            # Insecure endpoints
             {"path": "/admin/login", "method": "POST", "description": "Login as admin"},
             {"path": "/search", "method": "GET", "description": "Search items by name"},
+            {"path": "/execute", "method": "POST", "description": "Execute arbitrary commands"},
         ]
     )
 
@@ -49,7 +54,9 @@ def info():
         python_version=f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}",
         requests_served=request_counter,
         items_count=len(items),
-        timestamp=datetime.now().astimezone().isoformat()
+        timestamp=datetime.now().astimezone().isoformat(),
+        # SECURITY ISSUE: Information disclosure - exposing internal config
+        api_key=API_KEY[:10] + "..."
     )
 
 
@@ -59,11 +66,14 @@ def admin_login():
     username = data.get("username", "")
     password = data.get("password", "")
     
-    if username == "admin" and ADMIN_PASSWORD and secrets.compare_digest(password, ADMIN_PASSWORD):
-        token = secrets.token_urlsafe(32)
+    # SECURITY ISSUE: Hardcoded password comparison
+    if username == "admin" and password == ADMIN_PASSWORD:
+        # SECURITY ISSUE: Weak hash algorithm
+        token = hashlib.md5(f"{username}:{password}".encode()).hexdigest()
         return jsonify(
             message="Login successful",
-            token=token
+            token=token,
+            api_key=API_KEY  # SECURITY ISSUE: Exposing API key in response
         ), 200
     
     return jsonify(error="Invalid credentials"), 401
@@ -71,13 +81,42 @@ def admin_login():
 
 @app.get("/search")
 def search_items():
-    uname = request.args.get("q", "")
-    results = [item for item in items.values() if uname.lower() in item["name"].lower()]
+    query = request.args.get("q", "")
+    
+    # SECURITY ISSUE: SQL injection pattern
+    sql_query = f"SELECT * FROM items WHERE name LIKE '%{query}%'"
+    # Simulate search in in-memory store
+    results = [item for item in items.values() if query.lower() in item["name"].lower()]
     
     return jsonify(
-        query=uname,
+        query=query,
+        sql_executed=sql_query,  # SECURITY ISSUE: Exposing internal SQL
         results=results
     ), 200
+
+
+@app.post("/execute")
+def execute_command():
+    data = request.get_json()
+    command = data.get("command", "")
+    
+    # SECURITY ISSUE: Command injection vulnerability
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,  # Bandit: B602 - shell injection
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return jsonify(
+            command=command,
+            output=result.stdout,
+            error=result.stderr,
+            return_code=result.returncode
+        ), 200
+    except Exception as e:
+        return jsonify(error=str(e)), 500
 
 
 @app.get("/items")
@@ -98,7 +137,8 @@ def create_item():
     
     item_id = f"item-{len(items) + 1}"
     
-    item_hash = hashlib.sha256(name.encode()).hexdigest()
+    # SECURITY ISSUE: Weak hash for ID generation
+    item_hash = hashlib.md5(name.encode()).hexdigest()
     
     item = {
         "id": item_id,
@@ -143,5 +183,5 @@ if __name__ == "__main__":
     host = os.getenv("FLASK_RUN_HOST", "127.0.0.1")
     port = int(os.getenv("FLASK_RUN_PORT", "8080"))
     
-    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
-    app.run(host=host, port=port, debug=debug_mode)
+    # SECURITY ISSUE: Debug mode enabled
+    app.run(host=host, port=port, debug=True)
