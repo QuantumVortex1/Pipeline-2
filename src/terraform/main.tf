@@ -52,10 +52,20 @@ resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
       {
         Effect = "Allow"
         Action = [
-          "logs:*",
-          "s3:*"
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ]
-        Resource = "*"
+        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/ec2/${var.project_name}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "arn:aws:s3:::${var.project_name}-logs/*"
       }
     ]
   })
@@ -65,13 +75,6 @@ resource "aws_security_group" "ec2_sg" {
   name        = "${var.project_name}-ec2-sg"
   description = "Security group for ${var.project_name} EC2 instance"
   vpc_id      = var.vpc_id
-  ingress {
-    description = "SSH from anywhere"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
   ingress {
     description = "HTTPS from load balancer only"
     from_port   = 443
@@ -108,7 +111,7 @@ resource "aws_instance" "example" {
   subnet_id            = var.subnet_id
   metadata_options {
     http_endpoint               = "enabled"
-    http_tokens                 = "optional"
+    http_tokens                 = "required"
     http_put_response_hop_limit = 1
     instance_metadata_tags      = "enabled"
   }
@@ -117,7 +120,7 @@ resource "aws_instance" "example" {
   root_block_device {
     volume_type           = "gp3"
     volume_size           = var.root_volume_size
-    encrypted             = false
+    encrypted             = true
     delete_on_termination = true
     tags = {
       Name        = "${var.project_name}-root-volume"

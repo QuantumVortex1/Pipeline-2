@@ -1,8 +1,8 @@
 output "instance_id" { description = "ID der EC2 Instance" value = aws_instance.example.id }
 
-output "instance_public_ip" { description = "Öffentliche IP der EC2 Instance" value = aws_instance.example.public_ip }
+output "instance_public_ip" { description = "Öffentliche IP der EC2 Instance" value = aws_instance.example.public_ip sensitive = true }
 
-output "instance_private_ip" { description = "Private IP der EC2 Instance" value = aws_instance.example.private_ip }
+output "instance_private_ip" { description = "Private IP der EC2 Instance" value = aws_instance.example.private_ip sensitive = true }
 
 output "instance_arn" { description = "ARN der EC2 Instance" value = aws_instance.example.arn }
 
