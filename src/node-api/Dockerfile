@@ -2,7 +2,7 @@ FROM node:20-alpine
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 COPY . .
 RUN chown -R nodejs:nodejs /app
 EXPOSE 3000
