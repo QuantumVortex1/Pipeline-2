@@ -27,7 +27,7 @@ jobs:
       - name: Install Bandit
         run: python -m pip install --upgrade pip && pip install bandit bandit-sarif-formatter
       - name: Run Bandit (SARIF)
-        run: bandit -r src/minimal-app -f sarif -o bandit-report.sarif || true
+        run: bandit -r src -f sarif -o bandit-report.sarif || true
       - name: Upload Bandit SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -54,7 +54,7 @@ jobs:
       - name: Install checkov
         run: python -m pip install --upgrade pip && pip install checkov
       - name: Run Checkov (SARIF)
-        run: checkov -d src/minimal-app -o sarif --output-file-path checkov-report.sarif || true
+        run: checkov -d src -o sarif --output-file-path checkov-report.sarif || true
       - name: Upload Checkov SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -77,25 +77,42 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build python sample image
-        run: docker build -t minimal-app:latest ./src/minimal-app
       - name: Create trivy output dir
         run: mkdir -p trivy-output
-      - name: Run Trivy scan (SARIF)
+      
+      # Build and scan minimal-app
+      - name: Build minimal-app image
+        run: docker build -t minimal-app:latest ./src/minimal-app
+      - name: Run Trivy scan on minimal-app (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --severity CRITICAL,HIGH --format sarif --output /output/trivy-report.sarif minimal-app:latest || true
-      - name: Upload Trivy SARIF to GitHub Security
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-minimal-app.sarif minimal-app:latest || true
+      
+      # Build and scan node-api
+      - name: Build node-api image
+        run: docker build -t node-api:latest ./src/node-api
+      - name: Run Trivy scan on node-api (SARIF)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "${{ github.workspace }}/trivy-output:/output" aquasec/trivy image --format sarif --output /output/trivy-node-api.sarif node-api:latest || true
+      
+      # Upload results
+      - name: Upload Trivy minimal-app SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: trivy-output/trivy-report.sarif
-          category: trivy
-      - name: Upload Trivy report (artifact)
+          sarif_file: trivy-output/trivy-minimal-app.sarif
+          category: trivy-minimal-app
+      - name: Upload Trivy node-api SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-output/trivy-node-api.sarif
+          category: trivy-node-api
+      - name: Upload Trivy reports (artifact)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: trivy-report
-          path: trivy-output/trivy-report.sarif
+          name: trivy-reports
+          path: trivy-output/*.sarif
 
   dependency-check:
     name: SCA - OWASP Dependency-Check 
@@ -108,116 +125,42 @@ jobs:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Debug - list workspace contents
-        run: |
-          echo "Workspace: $GITHUB_WORKSPACE"
-          ls -la "$GITHUB_WORKSPACE" || true
-          echo 'minimal-app content:'
-          ls -la "$GITHUB_WORKSPACE/src/minimal-app" || true
+      
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-      - name: Install node dependencies for src/minimal-app (if present)
+          node-version: '18'
+      
+      - name: Install node-api dependencies
         run: |
-          if [ -f "${{ github.workspace }}/src/minimal-app/package.json" ]; then
-            echo 'package.json found, running npm ci'
-            cd "${{ github.workspace }}/src/minimal-app" || exit 1
-            npm ci || npm install
-          else
-            echo 'No package.json found in src/minimal-app, skipping npm install'
-          fi
-      - name: Create output dir
+          cd src/node-api
+          npm install || true
+      
+      - name: Create output directory
         run: mkdir -p dc-output
-      - name: Restore cached Dependency-Check Docker image (tar)
-        uses: actions/cache@v4
-        with:
-          path: .cache/owasp-dependency-check-image.tar
-          key: owasp-dependency-check-image-${{ runner.os }}-v1
-          restore-keys: owasp-dependency-check-image-${{ runner.os }}-
 
-      - name: Load or pull Dependency-Check image
+      - name: Run OWASP Dependency-Check
         run: |
-          IMAGE_TAR=".cache/owasp-dependency-check-image.tar"
-          if [ -f "$IMAGE_TAR" ]; then
-            echo "Loading dependency-check image from cache"
-            docker load -i "$IMAGE_TAR"
-          else
-            echo "Cache miss: pulling image and saving to cache"
-            docker pull owasp/dependency-check:latest
-            mkdir -p .cache
-            docker save owasp/dependency-check:latest -o "$IMAGE_TAR"
-          fi
-
-      - name: Cache dependency-check NVD DB (dc-cache)
-        uses: actions/cache@v4
-        with:
-          path: dc-cache
-          key: dependency-check-db-${{ runner.os }}-v1
-          restore-keys: dependency-check-db-${{ runner.os }}-
-
-      - name: Populate dependency-check NVD DB into cache (if empty)
-        run: |
-          # If dc-cache is small (<1MB) then run a quick scan to force the container
-          # to download the NVD DB into the mounted cache directory.
-          CACHE_BYTES=$(du -sb dc-cache 2>/dev/null | cut -f1 || echo 0)
-          echo "dc-cache size (bytes): $CACHE_BYTES"
-          if [ "$CACHE_BYTES" -lt 1000000 ]; then
-            echo 'dc-cache appears to be empty or small; preparing to populate NVD DB (this may take a while)...'
-            echo 'Listing dc-cache before populate:'
-            ls -la dc-cache || true
-
-            # Remove obvious stale lock files if present to avoid H2 exclusive lock issues
-            echo 'Removing stale H2/lock files (if any) in dc-cache...'
-            find dc-cache -type f \( -name '*.lock' -o -name '*.lck' -o -name 'H2*' \) -print -delete || true
-
-            echo 'Running dependency-check container as root to populate cache (writes will be owned by root initially)...'
-            docker run --rm --user 0 \
-              -e NVD_API_KEY="$NVD_API_KEY" \
-              -v "${{ github.workspace }}/dc-cache:/usr/share/dependency-check/data" \
-              -v "${{ github.workspace }}/src/minimal-app:/src" \
-              owasp/dependency-check:latest --nvdApiKey "$NVD_API_KEY" --scan /src --format JSON --out /tmp/report || true
-
-            echo 'After populate run, host dc-cache listing (owner and size):'
-            ls -la dc-cache || true
-            du -sh dc-cache || true
-
-            # Ensure runner user can access the files (chown back to runner)
-            echo 'Setting ownership of dc-cache back to runner user...'
-            sudo chown -R $(id -u):$(id -g) dc-cache || true
-            echo 'After chown, dc-cache listing:'
-            ls -la dc-cache || true
-          else
-            echo 'dc-cache looks populated; skipping populate step.'
-          fi
-
-      - name: Prepare dc-cache for run (remove locks & set perms)
-        run: |
-          echo 'Removing stale lock files from dc-cache if present'
-          find dc-cache -type f \( -name '*.lock' -o -name '*.lck' -o -name 'H2*' \) -print -delete || true
-          echo 'Make dc-cache writable for container process'
-          chmod -R a+rwX dc-cache || true
-
-      - name: Run OWASP Dependency-Check (Docker) using cached image and DB
-        run: |
-          # mount of dc-cache -> /usr/share/dependency-check/data assumes the
-          # container uses that path for the NVD database. Run container as root
-          # so it can obtain the H2 exclusive lock and update DB files.
-          docker run --rm --user 0 \
+          docker run --rm \
             -e NVD_API_KEY="$NVD_API_KEY" \
-              -v "${{ github.workspace }}/src/minimal-app:/src" \
+            -v "${{ github.workspace }}/src:/src" \
             -v "${{ github.workspace }}/dc-output:/report" \
-            -v "${{ github.workspace }}/dc-cache:/usr/share/dependency-check/data" \
-            owasp/dependency-check:latest --noupdate --nvdApiKey "$NVD_API_KEY" --scan /src --format SARIF --out /report || true
+            owasp/dependency-check:latest \
+            --nvdApiKey "$NVD_API_KEY" \
+            --scan /src \
+            --format SARIF \
+            --out /report || true
+      
       - name: Upload Dependency-Check SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: dc-output/dependency-check-report.sarif
           category: dependency-check
+      
       - name: Upload Dependency-Check report (artifact)
-        if: always()
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: dependency-check-report
           path: dc-output/**
